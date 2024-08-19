@@ -31,6 +31,8 @@ def log_likelihood(data,
     return logprob_mixgaussian(data,mus+mu_a,torch.sqrt(sigs**2+sig_a**2),rhos)
 
 
+# %%
+
 Ncomp = 20
 
 diralpha = ((.9)**torch.arange(Ncomp)).to(device)
@@ -45,9 +47,6 @@ def logprior(mus,sigs,rhos):
             + dir_prior.log_prob(rhos))
 
 lp_function = lambda mus,sigs,rhos: log_likelihood(x,mus,sigs,rhos).sum() + logprior(mus,sigs,rhos)
-
-
-# %%
 
 
 # %%
@@ -103,12 +102,6 @@ def update(mus,sigs,rhos,lp,tol=1e-2,tol_rho =1e-5,burnin=False):
 
 
 # %%
-
-
-
-
-
-# %%
 thetas = []
 lps = []
 
@@ -124,13 +117,10 @@ lp_new=lp
 tols_burnin = linspace(.3,.01,5000)
 for i in range(len(tols_burnin)):
     tol = tols_burnin[i]
-    #while lp_new ==lp:
-    #mus,sigs,rhos,lp = update(mus,sigs,rhos,lp,tol=tol,tol_rho=tol/100,burnin=True)
     mus,sigs,rhos,lp = update(mus,sigs,rhos,lp,tol=tol,tol_rho=tol*1e-3,burnin=True)
 
     thetas.append(torch.hstack((mus,sigs,rhos)))
     lps.append(lp)
-        #print([a for a in (mus,sigs,rhos)],lp)
     if (i-1)%1000==0:
         print('logpost=',lp.item(),'logprior=',logprior(mus,sigs,rhos))
 

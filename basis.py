@@ -15,9 +15,28 @@ def logprob_dirichlet(rho,alpha):
 
 logprob_exp = lambda x,scale: -x/scale-torch.log(scale)
 
+logprob_lexp = lambda lx,scale: logprob_exp(torch.exp(lx),scale) +lx
+
+logprob_lgamma = lambda lx,k,th: logprob_gamma(torch.exp(lx),k,th) +lx
+
 def KL(p,q,x):
     dx = x[1]-x[0]
     p,q = p[p>0],q[p>0]
     return dx*(p*(torch.log(p)-torch.log(q))).sum()
 
 normalize = lambda x:x/x.sum()
+
+class log_distribution:
+    def __init__(self, distribution):
+        self.dist = distribution
+
+        ##This is a rough estimation, does not take it too seriously
+        lx = self.sample((10000,))
+        self.mean = lx.mean()
+        self.stddev = lx.std()
+        
+    def sample(self,args):
+        return torch.log(self.dist.sample(args))
+
+    def log_prob(self,lx):
+        return self.dist.log_prob(torch.exp(lx)) + lx
