@@ -12,7 +12,7 @@ N, shape = int(sys.argv[1]),int(sys.argv[2])
 print(N,shape)
 
 # %%
-torch.manual_seed(66)
+torch.manual_seed(42)
 mu_a,sig_a = 10,1
 shape,scale = shape,1
 #N = 10000

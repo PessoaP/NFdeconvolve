@@ -128,7 +128,6 @@ burn=len(lps)
 
 
 # %%
-
 for i in range(10000):
     mus,sigs,rhos,lp = update(mus,sigs,rhos,lp,tol=tol,tol_rho=tol*1e-3)
 
@@ -140,41 +139,6 @@ for i in range(10000):
         print(lp.item())
 
 # %%
-
-fig,ax = plt.subplots(1,2,figsize=(2*6.4,4.8))
-xb =  torch.linspace(1e-3,ceil(x.max().item()-mu_a/2),10000).reshape(-1).to(device)
-print(xb[0]-xb[1])
-
-p_gt = torch.exp(logprob_gamma(xb,torch.tensor(shape).to(device),torch.tensor(scale).to(device)))
-ax[0].plot(xb.cpu(),p_gt.cpu(),label='Ground Truth ', lw = 2.0,color='k')
-
-
-
-i = torch.argmax(torch.stack(lps))
-th_map = thetas[i]
-p_map = torch.exp(logprob_mixgaussian(xb,th_map[:Ncomp],th_map[Ncomp:2*Ncomp],th_map[2*Ncomp:]))
-ax[0].plot(xb.cpu(),p_map.cpu(),label='MAP  KL={:.2E}'.format(KL(p_gt,p_map,xb)))
-
-#p = torch.exp(torch.vstack([logprob_mixgaussian(xb,th[:Ncomp],th[Ncomp:2*Ncomp],th[2*Ncomp:]) for th in thetas[burn:]])).mean(axis=0)
-lp = torch.logsumexp(torch.vstack([logprob_mixgaussian(xb,th[:Ncomp],th[Ncomp:2*Ncomp],th[2*Ncomp:]) for th in thetas[burn:]]),axis=0)-torch.log(torch.tensor(len(thetas[burn:]))).to(device)
-p = torch.exp(lp)
-ax[0].plot(xb.cpu(),p.cpu(),label='Bayesian reconstruction KL={:.2E}'.format(KL(p_gt,p,xb)))
-
-
-ax[0].legend()
-ax[0].set_ylabel('density')
-ax[0].set_xlabel(r'$b$')
-
-ax[1].hist(x.cpu(),bins=int(ceil(sqrt(x.size(0)))),alpha=.2,density=True)
-ax[1].set_title('N={}'.format(N))
-ax[1].set_xlabel(r'$x$')
-plt.savefig('graphs/Bayes_NP_N_{}_{}_G_{}_{}_datapoints{}.png'.format(mu_a,sig_a,shape,scale,N),dpi=600)
-
-# %%
 df = pd.DataFrame(torch.vstack(thetas).cpu().numpy(),columns=(['mu_{}'.format(i) for i in range(Ncomp)]+['sigma_{}'.format(i) for i in range(Ncomp)]+['weight_{}'.format(i) for i in range(Ncomp)]))
 df['log_post'] = torch.stack(lps).cpu().numpy()
-df.to_csv('models/sum_npbayes_'+filename.split('.')[0]+'datapoints_{}.csv'.format(N))
-
-# %%
-with open('report.csv', 'a') as file:
-    file.write(filename+',npbayes,'+str(N)+','+str(KL(p_gt,p,xb).item())+','+str(KL(p_gt,p_map,xb).item())+'\n')
+df.to_csv('models/sum_NPbayes_'+filename.split('.')[0]+'datapoints_{}.csv'.format(N))
