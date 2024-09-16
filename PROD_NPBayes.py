@@ -50,7 +50,7 @@ dir_prior = torch.distributions.Dirichlet(diralpha)
 
 def logprior(mus,sigs,rhos): 
     return (logprob_gaussian(mus,torch.zeros_like(diralpha),5*torch.ones_like(diralpha)).sum() 
-            + logprob_gaussian(torch.log(sigs),torch.ones_like(diralpha),1*torch.ones_like(diralpha)).sum() 
+            + logprob_gaussian(torch.log(sigs),torch.ones_like(diralpha),torch.ones_like(diralpha)).sum() 
             - torch.log(sigs).sum()
             + dir_prior.log_prob(rhos))
 

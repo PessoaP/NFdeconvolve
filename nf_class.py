@@ -1,7 +1,8 @@
 import torch
 import normflows as nf  
 from tqdm import tqdm
-from basis import log_distribution
+from basis import log_distribution #make it part of thhis file for release
+import warnings
 
 
 torch.manual_seed(0)
@@ -21,59 +22,71 @@ def create_nfm(device):
     q0 = nf.distributions.DiagGaussian(1, trainable=False)
     nfm = nf.NormalizingFlow(q0=q0, flows=flows)
 
-    # Move model on GPU if available
     enable_cuda = True
     return nfm.to(device)
 
 
 class NormalizingFlow_shifted:
-    def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),mu=0,sig=1):
+    def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),center=0,width=1):
         self.nfm = create_nfm(device)
-        self.mu = torch.tensor(mu).to(device)
-        self.sig = torch.tensor(sig).to(device)
-        self.zb = lambda x: (x-self.mu)/self.sig
+        self.center = torch.tensor(center).to(device)
+        self.width = torch.tensor(width).to(device)
+        self.zb = lambda x: (x-self.center)/self.width
         self.parameters = lambda: self.nfm.parameters()
         self.device = device
         
     def log_prob(self,x):
-        return self.nfm.log_prob(self.zb(x))-torch.log(self.sig)
+        return self.nfm.log_prob(self.zb(x))-torch.log(self.width)
     
     def sample(self,*args):
         logsamples = self.nfm.sample(*args)
-        return self.mu+self.sig*logsamples[0], logsamples[1]-torch.log(self.sig)
+        return self.center+self.width*logsamples[0], logsamples[1]-torch.log(self.width)
     
     def state_dict(self):
         g = self.nfm.state_dict().copy()
-        g['mean,scale'] = torch.stack((self.mu,self.sig))
+        g['center,width'] = torch.stack((self.center,self.width))
         return g
     
     def load_state_dict(self,dict):
-        self.mu,self.sig = dict.pop('mean,scale').to(self.device)
-        self.zb = lambda x: (x-self.mu)/self.sig
+        self.center,self.width = dict.pop('center,width').to(self.device)
+        self.zb = lambda x: (x-self.center)/self.width
         return self.nfm.load_state_dict(dict)
 
 
 class Deconvolver:
-    def __init__(self,data,a_distribution,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+    def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
         self.a_distribution = a_distribution#.to(device)
-        mu_a,sig_a = self.a_distribution.mean,self.a_distribution.stddev
         
-        self.data = data.reshape(-1).to(device)
-        self.N=data.size(0)
+        if (data is None) or (a_distribution is None):
+            self.nfs = NormalizingFlow_shifted(device,torch.zeros(1,device=device),torch.ones(1,device=device))
+
+        else:
+            mu_a,sig_a = self.a_distribution.mean,self.a_distribution.stddev
+            self.data = data.reshape(-1).to(device)
+            self.N = data.size(0)
+            self.device = device
+
+            self.b_vals = torch.linspace(data.min().item()-mu_a-3*sig_a, data.max().item()-mu_a+3*sig_a,intervals).to(device).reshape(-1,1)
+            self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
+
+            self.nfs = NormalizingFlow_shifted(device,self.data.mean()-mu_a,self.data.std())
+
         self.device = device
-
-        self.b_vals = torch.linspace(data.min().item()-mu_a-3*sig_a, data.max().item()-mu_a+3*sig_a,20000).to(device).reshape(-1,1)
-        self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
-
-        self.nfs = NormalizingFlow_shifted(device,self.data.mean()-mu_a,self.data.std())
-        self.trained=False
+        self.trained = False
 
     def log_likelihood(self):
+        if self.a_distribution is None:
+            return warnings.warn('The distribution was not provided. We cannot calculate likelihoods')
         lpb = self.nfs.log_prob(self.b_vals).reshape(-1,1)
         lpa = self.a_distribution.log_prob(self.data-self.b_vals)
         return self.log_db + torch.logsumexp(lpb+lpa,axis=0)
     
     def train(self,max_iter =1000,show_iter = 100):
+        if self.trained:
+            warnings.warn('You are trying to train over a network that was already previously trained.')
+        if self.data.numel ==0:
+            return warnings.warn('The observations data was not provided. It cannot be trained.')
+        
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
         loss_hist =[]
@@ -101,22 +114,36 @@ class Deconvolver:
         return values.reshape(-1), torch.exp(lp)
 
     def state_dict(self):
-        return self.nfs.state_dict()
+        g = self.nfs.state_dict().copy()
+        g['b_array:min,max,intervals'] = torch.tensor((self.b_vals[0].float(),
+                                                       self.b_vals[-1].float(),
+                                                       self.b_vals.numel()))
+        return g
+    
     
     def load_state_dict(self,dict):
-        self.trained=True
+        xb_min,xb_max,intervals = dict.pop('b_array:min,max,intervals')#.to(self.device)
+        self.b_vals = torch.linspace(xb_min,xb_max,intervals.int().item()).to(self.device).reshape(-1,1)
+        self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
+
         self.nfs.load_state_dict(dict)
+        self.trained=True
+
+  
     
 
 class ProdDeconvolver:
-    def __init__(self,data,a_distribution,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
-        self.la_distribution = log_distribution(a_distribution)
-        self.ldata = torch.log(data)
-        self.subdeconvolver = Deconvolver(self.ldata,self.la_distribution,device)
-        self.device = device
+    def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
+        if (data is None) or (a_distribution is None):
+            self.subdeconvolver = Deconvolver(data,a_distribution,device)
+        else:
+            self.la_distribution = log_distribution(a_distribution)
+            self.ldata = torch.log(data)
+            self.subdeconvolver = Deconvolver(self.ldata,self.la_distribution,device,intervals)
+            self.device = device
         self.lb_vals = torch.linspace(min((1e-3,torch.exp(self.subdeconvolver.b_vals[0]).item())),
                                            torch.exp(self.subdeconvolver.b_vals[-1]).item(),
-                                           20000).to(device).reshape(-1,1)
+                                           intervals).to(self.device).reshape(-1,1)
         
     def train(self,max_iter =1000,show_iter = 100):
         self.subdeconvolver.train(max_iter,show_iter)
@@ -126,6 +153,9 @@ class ProdDeconvolver:
     
     def load_state_dict(self,dict):
         self.subdeconvolver.load_state_dict(dict)
+        self.lb_vals = torch.linspace(min((1e-3,torch.exp(self.subdeconvolver.b_vals[0]).item())),
+                                           torch.exp(self.subdeconvolver.b_vals[-1]).item(),
+                                           self.subdeconvolver.b_vals.numel()).to(self.device).reshape(-1,1)
 
     def get_pdf(self, values = None,log_prob=False):
         if values is None:
