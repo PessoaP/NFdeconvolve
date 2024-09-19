@@ -3,6 +3,7 @@ import normflows as nf
 from tqdm import tqdm
 from basis import log_distribution #make it part of thhis file for release
 import warnings
+from math import sqrt
 
 
 torch.manual_seed(0)
@@ -10,13 +11,13 @@ torch.manual_seed(0)
 def create_nfm(device):
     K = 4
     latent_size = 1
-    hidden_units = 32
+    hidden_units = 64
     hidden_layers = 1
 
     flows = []
     for i in range(K):
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=30)]
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, 2*hidden_layers, hidden_units,tail_bound=30)]
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=10)]
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, 2*hidden_layers, hidden_units,tail_bound=10)]
         flows += [nf.flows.LULinearPermute(latent_size)]
 
     q0 = nf.distributions.DiagGaussian(1, trainable=False)
@@ -88,7 +89,10 @@ class Deconvolver:
             return warnings.warn('The observations data was not provided. It cannot be trained.')
         
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
+        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/sqrt(self.N))
+        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=1/sqrt(self.N))
+        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.001)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=show_iter, gamma=0.9)
         loss_hist =[]
 
         for it in tqdm(range(max_iter)):
@@ -103,6 +107,9 @@ class Deconvolver:
             loss_hist.append(loss.item())
             if (it + 1) % show_iter == 0:
                 print('Loss',loss_hist[-1])
+                l2 = lambda x: torch.sqrt((x*x).sum())
+                print('gradient',l2(torch.stack([(l2(p.grad)) for p in self.nfs.nfm.parameters()])))
+
         self.trained=True
 
     def get_pdf(self, values = None,log_prob=False):

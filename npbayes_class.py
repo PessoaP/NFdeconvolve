@@ -22,6 +22,7 @@ def log_propdist_rhos(prop,origin,tol=1e-5):
     dir = torch.distributions.Dirichlet(origin/tol)
     return dir.log_prob(prop)
 
+params2ten = lambda mus,sigs,rhos: (mus,torch.log(sigs),torch.log(rhos))
 
 class Deconvolver:
     def __init__(self,data = None,
@@ -119,7 +120,6 @@ class Deconvolver:
     
     def MAP_estimate(self,lr=1.,max_iter =5000,show_iter = 1000,scheduler_step=100):
         Ncomp = self.diralpha.size(0)
-        params2ten = lambda mus,sigs,rhos: (mus,torch.log(sigs),torch.log(rhos))
         ten2params = lambda ten: (ten[:Ncomp], torch.exp(ten[Ncomp:2*Ncomp]), normalize(torch.exp(ten[2*Ncomp:])))
 
         tensor = torch.hstack((params2ten(*self.initial()))).to(self.device).requires_grad_(True)
