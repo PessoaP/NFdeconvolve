@@ -8,26 +8,26 @@ from math import sqrt
 
 torch.manual_seed(0)
 
-def create_nfm(device):
+def OLD_create_nfm(device):
     K = 4
     latent_size = 1
-    hidden_units = 64
+    hidden_units = 32
     hidden_layers = 1
 
+    q0 = nf.distributions.DiagGaussian(1, trainable=False)
     flows = []
     for i in range(K):
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=10)]
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, 2*hidden_layers, hidden_units,tail_bound=10)]
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=50)]#changed from 30
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, 2*hidden_layers, hidden_units,tail_bound=50)]
         flows += [nf.flows.LULinearPermute(latent_size)]
 
-    q0 = nf.distributions.DiagGaussian(1, trainable=False)
     nfm = nf.NormalizingFlow(q0=q0, flows=flows)
 
     enable_cuda = True
     return nfm.to(device)
 
 
-class NormalizingFlow_shifted:
+class OLD_NormalizingFlow_shifted:
     def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),center=0,width=1):
         self.nfm = create_nfm(device)
         self.center = torch.tensor(center).to(device)
@@ -40,8 +40,8 @@ class NormalizingFlow_shifted:
         return self.nfm.log_prob(self.zb(x))-torch.log(self.width)
     
     def sample(self,*args):
-        logsamples = self.nfm.sample(*args)
-        return self.center+self.width*logsamples[0], logsamples[1]-torch.log(self.width)
+        zsamples = self.nfm.sample(*args)
+        return self.center+self.width*zsamples[0], zsamples[1]-torch.log(self.width)
     
     def state_dict(self):
         g = self.nfm.state_dict().copy()
@@ -53,13 +53,38 @@ class NormalizingFlow_shifted:
         self.zb = lambda x: (x-self.center)/self.width
         return self.nfm.load_state_dict(dict)
 
+def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tail_bound=50):
+    latent_size = 1
+
+    q0 = nf.distributions.DiagGaussian(1, trainable=False)
+    flows = []
+    for i in range(K):
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=tail_bound) for hidden_layers in hidden_layers_list]
+        flows += [nf.flows.LULinearPermute(latent_size)]
+
+    nfm = nf.NormalizingFlow(q0=q0, flows=flows)
+
+    enable_cuda = True
+    return nfm.to(device)
+
+
+def NormalizingFlow_shifted(device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), center=0, width=1,tail_bound=50):
+        nfm = create_nfm(device,tail_bound=tail_bound)
+        nfm.q0.loc = nfm.q0.loc*0 + center
+        nfm.q0.log_scale = nfm.q0.log_scale*0 + torch.log(torch.tensor(width)+1e-8)
+        return nfm
+
 
 class Deconvolver:
-    def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
+    def __init__(self,data = None,
+                 a_distribution = None,
+                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+                 intervals = 20000,
+                 tail_bound=50):
         self.a_distribution = a_distribution#.to(device)
         
         if (data is None) or (a_distribution is None):
-            self.nfs = NormalizingFlow_shifted(device,torch.zeros(1,device=device),torch.ones(1,device=device))
+            self.nfs = NormalizingFlow_shifted(device,torch.zeros(1,device=device),torch.ones(1,device=device),tail_bound=tail_bound)
 
         else:
             mu_a,sig_a = self.a_distribution.mean,self.a_distribution.stddev
@@ -70,7 +95,10 @@ class Deconvolver:
             self.b_vals = torch.linspace(data.min().item()-mu_a-3*sig_a, data.max().item()-mu_a+3*sig_a,intervals).to(device).reshape(-1,1)
             self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
 
-            self.nfs = NormalizingFlow_shifted(device,self.data.mean()-mu_a,self.data.std())
+            width = self.data.std().item() 
+            width *= torch.sqrt(1-torch.pow(a_distribution.stddev/self.data.std(),2))
+            width = max(width,self.data.std()/4 )
+            self.nfs = NormalizingFlow_shifted(device,self.data.mean()-mu_a,width,tail_bound=tail_bound)
 
         self.device = device
         self.trained = False
@@ -89,9 +117,6 @@ class Deconvolver:
             return warnings.warn('The observations data was not provided. It cannot be trained.')
         
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
-        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/sqrt(self.N))
-        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=1/sqrt(self.N))
-        #optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.001)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=show_iter, gamma=0.9)
         loss_hist =[]
 
@@ -108,13 +133,13 @@ class Deconvolver:
             if (it + 1) % show_iter == 0:
                 print('Loss',loss_hist[-1])
                 l2 = lambda x: torch.sqrt((x*x).sum())
-                print('gradient',l2(torch.stack([(l2(p.grad)) for p in self.nfs.nfm.parameters()])))
+                print('gradient',l2(torch.stack([(l2(p.grad)) for p in self.nfs.parameters()])))
 
         self.trained=True
 
     def get_pdf(self, values = None,log_prob=False):
         if values is None:
-            values = self.b_vals
+            values = self.b_vals*1.0
         lp = self.nfs.log_prob(values.reshape(-1,1).to(self.device)).detach()
         if log_prob:
             return values.reshape(-1),lp
