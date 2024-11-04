@@ -24,7 +24,6 @@ x = torch.tensor(loadtxt('datasets/'+filename)[:N]).float().to(device)
 Ncomp=20
 model = npbayes_class.Deconvolver(x,mu_a,sig_a,Ncomp=Ncomp)
 
-
 # %%
 thetas,lps = model.MCMC_chain()
 

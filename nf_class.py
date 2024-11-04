@@ -8,17 +8,14 @@ from math import sqrt
 
 torch.manual_seed(0)
 
-def OLD_create_nfm(device):
-    K = 4
+
+def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tail_bound=30):
     latent_size = 1
-    hidden_units = 32
-    hidden_layers = 1
 
     q0 = nf.distributions.DiagGaussian(1, trainable=False)
     flows = []
     for i in range(K):
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=50)]#changed from 30
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, 2*hidden_layers, hidden_units,tail_bound=50)]
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=tail_bound) for hidden_layers in hidden_layers_list]
         flows += [nf.flows.LULinearPermute(latent_size)]
 
     nfm = nf.NormalizingFlow(q0=q0, flows=flows)
@@ -26,10 +23,9 @@ def OLD_create_nfm(device):
     enable_cuda = True
     return nfm.to(device)
 
-
-class OLD_NormalizingFlow_shifted:
-    def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),center=0,width=1):
-        self.nfm = create_nfm(device)
+class NormalizingFlow_shifted:
+    def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),center=0,width=1,tail_bound=30):
+        self.nfm = create_nfm(device,tail_bound=tail_bound)
         self.center = torch.tensor(center).to(device)
         self.width = torch.tensor(width).to(device)
         self.zb = lambda x: (x-self.center)/self.width
@@ -53,34 +49,13 @@ class OLD_NormalizingFlow_shifted:
         self.zb = lambda x: (x-self.center)/self.width
         return self.nfm.load_state_dict(dict)
 
-def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tail_bound=50):
-    latent_size = 1
-
-    q0 = nf.distributions.DiagGaussian(1, trainable=False)
-    flows = []
-    for i in range(K):
-        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units,tail_bound=tail_bound) for hidden_layers in hidden_layers_list]
-        flows += [nf.flows.LULinearPermute(latent_size)]
-
-    nfm = nf.NormalizingFlow(q0=q0, flows=flows)
-
-    enable_cuda = True
-    return nfm.to(device)
-
-
-def NormalizingFlow_shifted(device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), center=0, width=1,tail_bound=50):
-        nfm = create_nfm(device,tail_bound=tail_bound)
-        nfm.q0.loc = nfm.q0.loc*0 + center
-        nfm.q0.log_scale = nfm.q0.log_scale*0 + torch.log(torch.tensor(width)+1e-8)
-        return nfm
-
 
 class Deconvolver:
     def __init__(self,data = None,
                  a_distribution = None,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
                  intervals = 20000,
-                 tail_bound=50):
+                 tail_bound=30):
         self.a_distribution = a_distribution#.to(device)
         
         if (data is None) or (a_distribution is None):
@@ -96,9 +71,10 @@ class Deconvolver:
             self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
 
             width = self.data.std().item() 
-            width *= torch.sqrt(1-torch.pow(a_distribution.stddev/self.data.std(),2))
-            width = max(width,self.data.std()/4 )
-            self.nfs = NormalizingFlow_shifted(device,self.data.mean()-mu_a,width,tail_bound=tail_bound)
+            width *= max(1/4, torch.sqrt(1-torch.pow(a_distribution.stddev/self.data.std(),2)).item() )
+            self.nfs = NormalizingFlow_shifted(device,
+                                               (self.data.mean()-mu_a).item(),
+                                               width,tail_bound=tail_bound)
 
         self.device = device
         self.trained = False
@@ -110,30 +86,35 @@ class Deconvolver:
         lpa = self.a_distribution.log_prob(self.data-self.b_vals)
         return self.log_db + torch.logsumexp(lpb+lpa,axis=0)
     
-    def train(self,max_iter =1000,show_iter = 100):
+    def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100):
+        gradient_norm = 2*grad_tol
         if self.trained:
             warnings.warn('You are trying to train over a network that was already previously trained.')
         if self.data.numel ==0:
             return warnings.warn('The observations data was not provided. It cannot be trained.')
         
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=show_iter, gamma=0.9)
+        #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=show_iter, gamma=0.9)
         loss_hist =[]
 
         for it in tqdm(range(max_iter)):
             optimizer.zero_grad()
-            loss = -self.log_likelihood().mean()
-
+            loss = -(self.log_likelihood().mean())
+            
             if ~(torch.isnan(loss) | torch.isinf(loss)):
                 loss.backward()
                 optimizer.step()
-                scheduler.step()
+                #scheduler.step()
 
             loss_hist.append(loss.item())
             if (it + 1) % show_iter == 0:
                 print('Loss',loss_hist[-1])
                 l2 = lambda x: torch.sqrt((x*x).sum())
-                print('gradient',l2(torch.stack([(l2(p.grad)) for p in self.nfs.parameters()])))
+                gradient_norm = l2(torch.stack([l2(p.grad) for p in self.nfs.parameters()])).item()
+                print('gradient',gradient_norm)
+            if gradient_norm < grad_tol:
+                print(f'Stopping early at iteration {it + 1} due to small gradient norm: {gradient_norm}')
+                break
 
         self.trained=True
 
@@ -151,7 +132,6 @@ class Deconvolver:
                                                        self.b_vals[-1].float(),
                                                        self.b_vals.numel()))
         return g
-    
     
     def load_state_dict(self,dict):
         xb_min,xb_max,intervals = dict.pop('b_array:min,max,intervals')#.to(self.device)
@@ -177,8 +157,8 @@ class ProdDeconvolver:
                                            torch.exp(self.subdeconvolver.b_vals[-1]).item(),
                                            intervals).to(self.device).reshape(-1,1)
         
-    def train(self,max_iter =1000,show_iter = 100):
-        self.subdeconvolver.train(max_iter,show_iter)
+    def train(self,grad_tol=.05,max_iter =1000,show_iter = 100):
+        self.subdeconvolver.train(grad_tol,max_iter,show_iter)
 
     def state_dict(self):
         return self.subdeconvolver.state_dict()

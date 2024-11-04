@@ -3,7 +3,7 @@ import normflows as nf
 from tqdm import tqdm
 from basis import log_distribution,logprob_gaussian,normalize #make it part of thhis file for release
 import warnings
-from numpy import linspace
+from numpy import linspace,sqrt
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -98,6 +98,7 @@ class Deconvolver:
         thetas = []
         lps = []
         mus,sigs,rhos = [a.detach() for a in self.MAP_estimate()[0]]
+        rhos = .99*rhos +.01*normalize(torch.ones_like(rhos))
 
         lp = self.lp_function(mus,sigs,rhos)
 
@@ -125,7 +126,7 @@ class Deconvolver:
         tensor = torch.hstack((params2ten(*self.initial()))).to(self.device).requires_grad_(True)
         loss_function = lambda tensor: -self.lp_function(*ten2params(tensor))
 
-        optimizer = torch.optim.Adam([tensor],lr=lr/self.N)
+        optimizer = torch.optim.Adam([tensor],lr=lr/sqrt(self.N))
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=0.9)
         loss_hist =[]
 
