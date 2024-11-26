@@ -6,10 +6,8 @@ python make_data.py
 #echo "filename,method,N,KL_MAP,KL_reconstruct" > "report_prod.csv"
 
 
-n_values=(100 316 1000 3160 10000)
+n_values=(10000 3160 1000 316 100)
 methods=("SUM_Bayes.py" "SUM_NPBayes.py" "SUM_Normflow.py" "PROD_Bayes.py" "PROD_NPBayes.py" "PROD_Normflow.py")
-methods=("PROD_Normflow.py")
-
 
 for method in "${methods[@]}"
 do

@@ -39,3 +39,46 @@ class log_distribution:
 
     def log_prob(self,lx):
         return self.dist.log_prob(torch.exp(lx)) + lx
+    
+from matplotlib import pyplot as plt
+from matplotlib.ticker import ScalarFormatter
+from numpy import percentile
+
+def logprob_mixgaussian(x,mus,sigs,rhos):
+    return torch.logsumexp(logprob_gaussian(x.reshape(-1),mus.reshape(-1,1),sigs.reshape(-1,1))
+                           + torch.log(rhos.reshape(-1,1)),axis=0)
+
+
+def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
+    if tails is not None :
+        xb_nf,pb_nf = NF.get_pdf(torch.linspace(tails[0],tails[1],251,device=NF.device))
+    else:
+        xb_nf,pb_nf = NF.get_pdf()
+
+    pb_npmap = torch.exp(logprob_mixgaussian(xb_nf,th[map_index][:20],th[map_index][20:40],th[map_index][40:60]))
+    pb_rec = torch.stack([torch.exp(logprob_mixgaussian(xb_nf,thi[:20],thi[20:40],thi[40:60])) for thi in th[5000:]]).mean(axis=0)
+    p = pb_gt(xb_nf)
+
+    fig,ax = plt.subplots(2,1,figsize=(6,7))
+
+    h = ax[0].hist(x, alpha=.7,density=True,label='Data',bins=49)
+    ax[0].hist(b, alpha=.4,density=True,label='Signal',bins=h[1])
+
+    #plt.plot(xb_nf.detach().cpu(),pb_npmap.detach().cpu())
+    ax[1].plot(xb_nf.detach().cpu(),pb_rec.detach().cpu(),label='Gaussian Mixture',linewidth=2)
+    ax[1].plot(xb_nf.detach().cpu(),pb_nf.detach().cpu(),label='NFdeconvolute',linewidth=2,color='r')
+
+    ax[1].plot(xb_nf.detach().cpu(),p.detach().cpu(),color='k',label = 'Ground truth',linewidth=1)
+ 
+    ax[1].set_ylabel('Density',fontsize=12)
+    if tails is not None :
+        [axi.set_xlim(*tails) for axi in ax]
+
+    [axi.legend(fontsize=10,loc=loc) for axi in ax]
+    plt.tight_layout()
+    plt.savefig(name+'_example.png',dpi=500)
+
+    print(name, 'models')
+    print('NFdeconvolute',KL(p.cpu(),pb_nf.cpu(),xb_nf.cpu()))
+    print('Reconstruct  ',KL(p.cpu(),pb_rec.cpu(),xb_nf.cpu()))
+    print('     MAP     ',KL(p.cpu(),pb_npmap.cpu(),xb_nf.cpu()))

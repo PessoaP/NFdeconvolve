@@ -18,6 +18,7 @@ def prop_rhos(rhos,tol=1e-5):
     dir = torch.distributions.Dirichlet(rhos/tol)
     return dir.sample()
 
+
 def log_propdist_rhos(prop,origin,tol=1e-5):
     dir = torch.distributions.Dirichlet(origin/tol)
     return dir.log_prob(prop)
@@ -46,7 +47,7 @@ class Deconvolver:
         return mus, sigs, rhos
 
     def logprior(self,mus,sigs,rhos): 
-        return (logprob_gaussian(mus,0*self.base_tensor,5*self.base_tensor).sum() 
+        return (logprob_gaussian(mus,0*self.base_tensor,50*self.base_tensor).sum() 
                 + logprob_gaussian(torch.log(sigs),self.base_tensor,self.base_tensor).sum() 
                 - torch.log(sigs).sum()
                 + self.dir_prior.log_prob(rhos))
@@ -94,10 +95,13 @@ class Deconvolver:
                 
         return mus,sigs,rhos,lp
     
-    def MCMC_chain(self,tols=.01,samples=10000,burnin_samples=5000,burnin_tol=.3):
+    def MCMC_chain(self,tols=.01,samples=10000,burnin_samples=5000,burnin_tol=.3,print_iter=False):
         thetas = []
         lps = []
-        mus,sigs,rhos = [a.detach() for a in self.MAP_estimate()[0]]
+        if self.N >500:
+            mus,sigs,rhos = [a.detach() for a in self.MAP_estimate(print_iter=print_iter)[0]]
+        else:
+            mus,sigs,rhos = self.initial()
         rhos = .99*rhos +.01*normalize(torch.ones_like(rhos))
 
         lp = self.lp_function(mus,sigs,rhos)
@@ -113,13 +117,13 @@ class Deconvolver:
 
             thetas.append(torch.hstack((mus,sigs,rhos)))
             lps.append(lp)
-            if (i-1)%1000==0:
+            if ((i-1)%1000==0) and print_iter:
                 print(i,[a[:5] for a in (mus,sigs,rhos)])
                 print(lp.item())
 
         return torch.vstack(thetas), torch.stack(lps)
     
-    def MAP_estimate(self,lr=1.,max_iter =5000,show_iter = 1000,scheduler_step=100):
+    def MAP_estimate(self,lr=1.,max_iter =5000,show_iter = 1000,scheduler_step=100,print_iter=False):
         Ncomp = self.diralpha.size(0)
         ten2params = lambda ten: (ten[:Ncomp], torch.exp(ten[Ncomp:2*Ncomp]), normalize(torch.exp(ten[2*Ncomp:])))
 
@@ -140,7 +144,7 @@ class Deconvolver:
                 scheduler.step()
 
             loss_hist.append(loss.item())
-            if (it + 1) % show_iter == 0:
+            if ((it + 1) % show_iter == 0) and print_iter:
                 print('Loss',-loss_hist[-1])
                 print(it,[a[:5].cpu() for a in ten2params(tensor)])
         #self.trained=True

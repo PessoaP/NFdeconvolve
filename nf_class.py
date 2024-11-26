@@ -71,7 +71,7 @@ class Deconvolver:
             self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
 
             width = self.data.std().item() 
-            width *= max(1/4, torch.sqrt(1-torch.pow(a_distribution.stddev/self.data.std(),2)).item() )
+            width *= max(1/4, torch.sqrt(1-torch.pow(sig_a/self.data.std(),2)).item() )
             self.nfs = NormalizingFlow_shifted(device,
                                                (self.data.mean()-mu_a).item(),
                                                width,tail_bound=tail_bound)
@@ -86,7 +86,7 @@ class Deconvolver:
         lpa = self.a_distribution.log_prob(self.data-self.b_vals)
         return self.log_db + torch.logsumexp(lpb+lpa,axis=0)
     
-    def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100):
+    def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100,print_iter=False):
         gradient_norm = 2*grad_tol
         if self.trained:
             warnings.warn('You are trying to train over a network that was already previously trained.')
@@ -107,7 +107,7 @@ class Deconvolver:
                 #scheduler.step()
 
             loss_hist.append(loss.item())
-            if (it + 1) % show_iter == 0:
+            if ((it + 1) % show_iter == 0) and print_iter:
                 print('Loss',loss_hist[-1])
                 l2 = lambda x: torch.sqrt((x*x).sum())
                 gradient_norm = l2(torch.stack([l2(p.grad) for p in self.nfs.parameters()])).item()
