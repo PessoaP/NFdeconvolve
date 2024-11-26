@@ -53,9 +53,9 @@ class NormalizingFlow_shifted:
 class Deconvolver:
     def __init__(self,data = None,
                  a_distribution = None,
-                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+                 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
                  intervals = 20000,
-                 tail_bound=30):
+                 tail_bound = 30):
         self.a_distribution = a_distribution#.to(device)
         
         if (data is None) or (a_distribution is None):
@@ -94,7 +94,6 @@ class Deconvolver:
             return warnings.warn('The observations data was not provided. It cannot be trained.')
         
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
-        #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=show_iter, gamma=0.9)
         loss_hist =[]
 
         for it in tqdm(range(max_iter)):
@@ -141,9 +140,35 @@ class Deconvolver:
         self.nfs.load_state_dict(dict)
         self.trained=True
 
-  
-    
 
+class log_distribution:
+    """
+    A wrapper class for transforming a probability distribution into its equivalent in log space.
+
+    Attributes:
+        dist (torch.distributions.Distribution): The base probability distribution.
+        mean (float): Approximate mean of the log-sampled values. Computed during initialization.
+        stddev (float): Approximate standard deviation of the log-sampled values. Computed during initialization.
+
+    Methods:
+        sample(args):
+            Samples values from the base distribution in log space.
+        log_prob(lx):
+            Computes the log-probability of a value in log space.
+    """
+    def __init__(self, distribution):
+        self.dist = distribution
+
+        lx = self.sample((10000,))
+        self.mean = lx.mean()
+        self.stddev = lx.std()
+        
+    def sample(self,*args):
+        return torch.log(self.dist.sample(*args))
+
+    def log_prob(self,lx):
+        return self.dist.log_prob(torch.exp(lx)) + lx
+    
 class ProdDeconvolver:
     def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
         if (data is None) or (a_distribution is None):

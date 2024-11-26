@@ -26,16 +26,29 @@ def KL(p,q,x):
 normalize = lambda x:x/x.sum()
 
 class log_distribution:
+    """
+    A wrapper class for transforming a probability distribution into its equivalent in log space.
+
+    Attributes:
+        dist (torch.distributions.Distribution): The base probability distribution.
+        mean (float): Approximate mean of the log-sampled values. Computed during initialization.
+        stddev (float): Approximate standard deviation of the log-sampled values. Computed during initialization.
+
+    Methods:
+        sample(args):
+            Samples values from the base distribution in log space.
+        log_prob(lx):
+            Computes the log-probability of a value in log space.
+    """
     def __init__(self, distribution):
         self.dist = distribution
 
-        ##This is a rough estimation, it just made to help training, where it does not need to be 
         lx = self.sample((10000,))
         self.mean = lx.mean()
         self.stddev = lx.std()
         
-    def sample(self,args):
-        return torch.log(self.dist.sample(args))
+    def sample(self,*args):
+        return torch.log(self.dist.sample(*args))
 
     def log_prob(self,lx):
         return self.dist.log_prob(torch.exp(lx)) + lx

@@ -20,3 +20,5 @@ do
         done
     done
 done
+
+python make_figures.py
