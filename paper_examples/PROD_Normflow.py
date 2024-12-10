@@ -2,7 +2,6 @@
 import torch
 from numpy import loadtxt,sqrt,ceil,linspace
 from matplotlib import pyplot as plt
-from basis import *
 import nf_class
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -29,3 +28,4 @@ model.train()
 # %%
 torch.save(model.state_dict(), 'models/prod_nf_'+filename.split('.')[0]+'datapoints_{}.pt'.format(N))
 
+del model

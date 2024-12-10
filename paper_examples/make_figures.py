@@ -133,6 +133,8 @@ for shape in range(3,10):
     df_sum.to_csv('report.csv',index=False)    
     ax[-1][0].set_xlabel(r'$x$',fontsize=12)
     [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
+    [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
+    [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
 
     make_titles(fig)
 
@@ -178,6 +180,7 @@ for shape in range(3,10):
     ax[-1][0].set_xlabel(r'$x$',fontsize=12)
     [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
     [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
+    [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
     make_titles(fig)
 
     plt.tight_layout()
