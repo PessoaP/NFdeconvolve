@@ -51,7 +51,7 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
 
     #plt.plot(xb_nf.detach().cpu(),pb_npmap.detach().cpu())
     ax[1].plot(xb_nf.detach().cpu(),pb_rec.detach().cpu(),label='Gaussian Mixture',linewidth=2)
-    ax[1].plot(xb_nf.detach().cpu(),pb_nf.detach().cpu(),label='NFdeconvolute',linewidth=2,color='r')
+    ax[1].plot(xb_nf.detach().cpu(),pb_nf.detach().cpu(),label='NFdeconvolve',linewidth=2,color='r')
 
     ax[1].plot(xb_nf.detach().cpu(),p.detach().cpu(),color='k',label = 'Ground truth',linewidth=1)
  
@@ -64,7 +64,7 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     plt.savefig(name+'_example.png',dpi=500)
 
     print(name, 'models')
-    print('NFdeconvolute',KL(p.cpu(),pb_nf.cpu(),xb_nf.cpu()))
+    print('NFdeconvolve',KL(p.cpu(),pb_nf.cpu(),xb_nf.cpu()))
     print('Reconstruct  ',KL(p.cpu(),pb_rec.cpu(),xb_nf.cpu()))
     print('     MAP     ',KL(p.cpu(),pb_npmap.cpu(),xb_nf.cpu()))
 

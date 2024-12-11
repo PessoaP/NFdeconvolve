@@ -36,7 +36,7 @@ class Deconvolver:
         self.device = device
 
         diralpha = ((decay)**torch.arange(Ncomp)).to(device)
-        self.diralpha = normalize(diralpha)*mult_factor#/10
+        self.diralpha = normalize(diralpha)*mult_factor
         self.dir_prior = torch.distributions.Dirichlet(self.diralpha)
         self.base_tensor = torch.ones_like(diralpha)
 
