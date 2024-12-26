@@ -8,6 +8,9 @@ python make_data.py
 
 n_values=(10000 3160 1000 316 100)
 methods=("SUM_Bayes.py" "SUM_NPBayes.py" "SUM_Normflow.py" "PROD_Bayes.py" "PROD_NPBayes.py" "PROD_Normflow.py")
+methods=("PROD_NPBayes.py" "SUM_NPBayes.py")
+
+
 
 for method in "${methods[@]}"
 do
@@ -22,3 +25,4 @@ do
 done
 
 python make_figures.py
+python figs12.py

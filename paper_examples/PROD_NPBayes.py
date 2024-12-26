@@ -44,12 +44,12 @@ def log_likelihood(ldata,mus,sigs,rhos):
 Ncomp = 20
 
 diralpha = ((.9)**torch.arange(Ncomp)).to(device)
-diralpha = normalize(diralpha)/10
+diralpha = normalize(diralpha)*10 
 dir_prior = torch.distributions.Dirichlet(diralpha)
 
 
 def logprior(mus,sigs,rhos): 
-    return (logprob_gaussian(mus,torch.zeros_like(diralpha),5*torch.ones_like(diralpha)).sum() 
+    return (logprob_gaussian(mus,torch.zeros_like(diralpha),50*torch.ones_like(diralpha)).sum() 
             + logprob_gaussian(torch.log(sigs),torch.ones_like(diralpha),torch.ones_like(diralpha)).sum() 
             - torch.log(sigs).sum()
             + dir_prior.log_prob(rhos))

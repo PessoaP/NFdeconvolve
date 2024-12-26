@@ -82,7 +82,7 @@ def make_graph(ax,x,xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,leg
     ax[2].plot(xb,npbayes_map)
     ax[2].plot(xb,npbayes_rec)
 
-    ax[3].plot(xb,p_nf,color='r',label='NFdeconvolute')
+    ax[3].plot(xb,p_nf,color='r',label='NFdeconvolve')
 
 
     [axi.set_ylim(0,torch.max(torch.stack((p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec)).nan_to_num(0)).item()*1.1) for axi in ax[1:] ]
@@ -90,12 +90,12 @@ def make_graph(ax,x,xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,leg
     [(axi.yaxis.set_major_formatter(ScalarFormatter(useMathText=True)), axi.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))) for axi in ax]
 
 
-plot_cols = ['Data', 'Bayesian with known model', 'Bayesian with Gaussian mixture', 'NFdeconvolute ']
+plot_cols = ['Data', 'Bayesian with known model', 'Bayesian with Gaussian mixture', 'NFdeconvolve ']
 def make_titles(fig):
     fig.text(0.15, 1., "Data", ha="center", fontsize=12)
     fig.text(0.40, 1., "Bayesian with known model", ha="center", fontsize=12)
     fig.text(0.65, 1., "Bayesian with Gaussian mixture", ha="center", fontsize=12)
-    fig.text(0.87, 1., "NFdeconvolute", ha="center", fontsize=12)
+    fig.text(0.87, 1., "NFdeconvolve", ha="center", fontsize=12)
 Ns = [100,316,1000,3160,10000]
 
 # %%
@@ -239,7 +239,7 @@ def grid_figure(df,fname,title):
 	df_img=make_table(df,'NPBayes','KL_MAP')
 	make_plot(axs['d'],df_img, r'Bayesian with Gaussian mixture MAP',norm)
 	df_img=make_table(df,'NF','KL_MAP')
-	pix = make_plot(axs['e'],df_img, r'NFdeconvolute',norm)
+	pix = make_plot(axs['e'],df_img, r'NFdeconvolve',norm)
 
 	# Add a colorbar on the side with explicit ticks and labels
 	cbar = fig.colorbar(pix, ax=list(axs.values()), orientation='vertical', fraction =.04,pad=0.04)

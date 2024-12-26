@@ -4,7 +4,6 @@ from matplotlib.ticker import ScalarFormatter
 from numpy import percentile
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
 lsqrt2pi = (torch.log(torch.tensor(2*torch.pi))/2).to(device)
 
 def logprob_gaussian(x,mu,sig):
@@ -54,14 +53,14 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     ax[1].plot(xb_nf.detach().cpu(),pb_nf.detach().cpu(),label='NFdeconvolve',linewidth=2,color='r')
 
     ax[1].plot(xb_nf.detach().cpu(),p.detach().cpu(),color='k',label = 'Ground truth',linewidth=1)
- 
+    ax[1].set_xlabel(r'$b$')
     ax[1].set_ylabel('Density',fontsize=12)
     if tails is not None :
         [axi.set_xlim(*tails) for axi in ax]
 
     [axi.legend(fontsize=10,loc=loc) for axi in ax]
     plt.tight_layout()
-    plt.savefig(name+'_example.png',dpi=500)
+    plt.savefig('graphs/'+name+'_example.png',dpi=500)
 
     print(name, 'models')
     print('NFdeconvolve',KL(p.cpu(),pb_nf.cpu(),xb_nf.cpu()))

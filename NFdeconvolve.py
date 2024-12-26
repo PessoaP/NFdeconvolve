@@ -1,13 +1,10 @@
 import torch
 import normflows as nf  
 from tqdm import tqdm
-from basis import log_distribution #make it part of thhis file for release
 import warnings
 from math import sqrt
-
-
+l2 = lambda x: torch.sqrt((x*x).sum())
 torch.manual_seed(0)
-
 
 def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tail_bound=30):
     latent_size = 1
@@ -85,6 +82,7 @@ class Deconvolver:
         lpb = self.nfs.log_prob(self.b_vals).reshape(-1,1)
         lpa = self.a_distribution.log_prob(self.data-self.b_vals)
         return self.log_db + torch.logsumexp(lpb+lpa,axis=0)
+
     
     def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100,print_iter=False):
         gradient_norm = 2*grad_tol
@@ -103,17 +101,15 @@ class Deconvolver:
             if ~(torch.isnan(loss) | torch.isinf(loss)):
                 loss.backward()
                 optimizer.step()
-                #scheduler.step()
 
             loss_hist.append(loss.item())
-            if ((it + 1) % show_iter == 0) and print_iter:
-                print('Loss',loss_hist[-1])
-                l2 = lambda x: torch.sqrt((x*x).sum())
+            if ((it + 1) % show_iter == 0):
                 gradient_norm = l2(torch.stack([l2(p.grad) for p in self.nfs.parameters()])).item()
-                print('gradient',gradient_norm)
-            if gradient_norm < grad_tol:
-                print(f'Stopping early at iteration {it + 1} due to small gradient norm: {gradient_norm}')
-                break
+                if print_iter:
+                    print('Loss:',loss_hist[-1],'   gradient:',gradient_norm)
+                if gradient_norm < grad_tol:
+                    print(f'Stopping early at iteration {it + 1} due to small gradient norm: {gradient_norm}')
+                    break
 
         self.trained=True
 
