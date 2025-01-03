@@ -222,7 +222,7 @@ def grid_figure(df,fname,title):
 	mosaic = [['a','a','b','b'],
 		      ['c','c','d','d'],
 		      ['X','e','e','X']]
-	fig = plt.figure(layout="constrained",figsize=(12,9))
+	fig = plt.figure(layout="constrained",figsize=(8,12))
 	axs = fig.subplot_mosaic(mosaic, empty_sentinel='X')
 
 
@@ -257,7 +257,7 @@ grid_figure(df,'fig4.png', 'Sum example')
 
 df = pd.read_csv('report_prod.csv')
 df['snr'] = [filename2snr_prod(fn) for fn in df['filename']]
-grid_figure(df,'fig5.png','Product example')
+grid_figure(df,'fig6.png','Product example')
 
 
 

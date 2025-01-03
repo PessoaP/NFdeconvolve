@@ -58,7 +58,8 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     if tails is not None :
         [axi.set_xlim(*tails) for axi in ax]
 
-    [axi.legend(fontsize=10,loc=loc) for axi in ax]
+    ax[0].legend(fontsize=10,loc=loc)
+    ax[1].legend(fontsize=8,loc=loc)
     plt.tight_layout()
     plt.savefig('graphs/'+name+'_example.png',dpi=500)
 

@@ -76,7 +76,6 @@ class Deconvolver:
         if torch.log(torch.rand(1))<(lp_prop-lp).item():
             sigs = sigs_prop
             lp = lp_prop
-
         
         rhos_prop = prop_rhos(rhos,tol=tol_rho)
         lp_prop = self.lp_function(mus,sigs,rhos_prop)
@@ -86,7 +85,6 @@ class Deconvolver:
                                     ).item():
             rhos = rhos_prop
             lp = lp_prop
-        #print('r',torch.abs(rhos-rhos_prop).max())
 
         if burnin:
             order = torch.argsort(-rhos)
