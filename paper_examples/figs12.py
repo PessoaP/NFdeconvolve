@@ -63,14 +63,13 @@ plt.xlim(-3,18)
 plt.xlabel(r'$b$',fontsize=15)
 plt.ylabel('Density',fontsize=15)
 
-
 ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
 plt.tight_layout()
 plt.savefig('graphs/fig1_signal.png',dpi=1000)
 
 xb,pnf = NF.get_pdf()
-plt.plot(xb.cpu(),pnf.cpu(),color='r',label = 'NFdeconvolute',linewidth=2)
+plt.plot(xb.cpu(),pnf.cpu(),color='r',label = 'NFdeconvolve',linewidth=2)
 plt.title('Signal distribution (Learned)',fontsize=20)
 
 plt.legend()
@@ -106,7 +105,6 @@ plt.savefig('graphs/fig1_noise.png',dpi=1000)
 # %%
 print('Gaussian Mixture example in Fig. 2')
 N_base = 2000
-
 name='normalmix'
 
 b_gt = lambda x: .5*torch.exp(logprob_gaussian(x,t(-5),t(1.5)))+.5*torch.exp(logprob_gaussian(x,t(5),t(1.5)))

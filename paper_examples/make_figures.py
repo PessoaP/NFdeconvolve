@@ -98,95 +98,95 @@ def make_titles(fig):
     fig.text(0.87, 1., "NFdeconvolve", ha="center", fontsize=12)
 Ns = [100,316,1000,3160,10000]
 
-# %%
-##MAIN sum examples
+# # %%
+# ##MAIN sum examples
 
-mu_a,sig_a = 10,1
-df_sum = pd.DataFrame(columns=dfcolumns)
+# mu_a,sig_a = 10,1
+# df_sum = pd.DataFrame(columns=dfcolumns)
 
-for shape in range(3,10):
-    shape_gt,scale_gt = shape,1
-    filename = 'N_{}_{}_G_{}_{}.csv'.format(mu_a,sig_a,shape_gt,scale_gt)
-    a_distribution= torch.distributions.Normal(torch.tensor(mu_a).float(),torch.tensor(sig_a).float())
+# for shape in range(3,10):
+#     shape_gt,scale_gt = shape,1
+#     filename = 'N_{}_{}_G_{}_{}.csv'.format(mu_a,sig_a,shape_gt,scale_gt)
+#     a_distribution= torch.distributions.Normal(torch.tensor(mu_a).float(),torch.tensor(sig_a).float())
 
-    fig,ax = plt.subplots(3,4,figsize=(12,6))
-    for N,plot_row in zip(Ns,[0,None,1,None,2]):
-        x = torch.tensor(loadtxt('datasets/'+filename)[:N]).float()
-        xb = torch.linspace((x.min().item()-(mu_a+3*sig_a)),
-                            (x.max().item()-(mu_a-3*sig_a)),10000)
+#     fig,ax = plt.subplots(3,4,figsize=(12,6))
+#     for N,plot_row in zip(Ns,[0,None,1,None,2]):
+#         x = torch.tensor(loadtxt('datasets/'+filename)[:N]).float()
+#         xb = torch.linspace((x.min().item()-(mu_a+3*sig_a)),
+#                             (x.max().item()-(mu_a-3*sig_a)),10000)
         
         
-        p_gt = torch.exp(logprob_gamma(xb,torch.tensor(shape_gt),torch.tensor(scale_gt)))
-        p_nf = prob_nf(xb,filename,N,met='sum')
-        bayes_map,bayes_rec = prob_bayes(xb,filename,N,met='sum')
-        npbayes_map,npbayes_rec = prob_npbayes(xb,filename,N,met='sum')
+#         p_gt = torch.exp(logprob_gamma(xb,torch.tensor(shape_gt),torch.tensor(scale_gt)))
+#         p_nf = prob_nf(xb,filename,N,met='sum')
+#         bayes_map,bayes_rec = prob_bayes(xb,filename,N,met='sum')
+#         npbayes_map,npbayes_rec = prob_npbayes(xb,filename,N,met='sum')
   
-        df_sum = pd.concat((df_sum,
-                                df_line(filename,'Bayes',N,xb,p_gt,bayes_map,bayes_rec),
-                                df_line(filename,'NPBayes',N,xb,p_gt,npbayes_map,npbayes_rec),
-                                df_line(filename,'NF',N,xb,p_gt,p_nf)),ignore_index=True)
+#         df_sum = pd.concat((df_sum,
+#                                 df_line(filename,'Bayes',N,xb,p_gt,bayes_map,bayes_rec),
+#                                 df_line(filename,'NPBayes',N,xb,p_gt,npbayes_map,npbayes_rec),
+#                                 df_line(filename,'NF',N,xb,p_gt,p_nf)),ignore_index=True)
 
-        if isinstance(plot_row,int):
-            make_graph(ax[plot_row],x,xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,legend=(N==Ns[0]))
-        if N==Ns[0]:
-            fig.legend(loc=8,ncol=4,bbox_to_anchor=(0.5,-0.06),fontsize=12)
-    df_sum.to_csv('report.csv',index=False)    
-    ax[-1][0].set_xlabel(r'$x$',fontsize=12)
-    [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
-    [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
-    [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
+#         if isinstance(plot_row,int):
+#             make_graph(ax[plot_row],x,xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,legend=(N==Ns[0]))
+#         if N==Ns[0]:
+#             fig.legend(loc=8,ncol=4,bbox_to_anchor=(0.5,-0.06),fontsize=12)
+#     df_sum.to_csv('report.csv',index=False)    
+#     ax[-1][0].set_xlabel(r'$x$',fontsize=12)
+#     [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
+#     [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
+#     [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
 
-    make_titles(fig)
+#     make_titles(fig)
 
-    plt.tight_layout()
-    fig.savefig('graphs/sum_'+filename.split('.')[0]+'.png',dpi=500,bbox_inches="tight", pad_inches=0.2)
-df_sum.to_csv('report.csv',index=False)
+#     plt.tight_layout()
+#     fig.savefig('graphs/sum_'+filename.split('.')[0]+'.png',dpi=500,bbox_inches="tight", pad_inches=0.2)
+# df_sum.to_csv('report.csv',index=False)
 
-# %%
-##MAIN product examples
+# # %%
+# ##MAIN product examples
 
-mu_a,sig_a = 10,1
-df_prod = pd.DataFrame(columns=dfcolumns)
+# mu_a,sig_a = 10,1
+# df_prod = pd.DataFrame(columns=dfcolumns)
 
-for shape in range(3,10):
-    shape_gt,scale_gt = shape,1
-    filename = 'N_{}_{}_G_{}_{}.csv'.format(mu_a,sig_a,shape_gt,scale_gt)
-    a_distribution= torch.distributions.Normal(torch.tensor(mu_a).float(),torch.tensor(sig_a).float())
+# for shape in range(3,10):
+#     shape_gt,scale_gt = shape,1
+#     filename = 'N_{}_{}_G_{}_{}.csv'.format(mu_a,sig_a,shape_gt,scale_gt)
+#     a_distribution= torch.distributions.Normal(torch.tensor(mu_a).float(),torch.tensor(sig_a).float())
 
-    fig,ax = plt.subplots(3,4,figsize=(12,6))
-    for N,plot_row in zip(Ns,[0,None,1,None,2]):
-        x = torch.tensor(loadtxt('datasets/'+'prod_'+filename)).float()
-        xb = torch.linspace((x.min().item()/(mu_a+3*sig_a)),
-                            ceil(x.max().item()/(mu_a-3*sig_a)),10000)
+#     fig,ax = plt.subplots(3,4,figsize=(12,6))
+#     for N,plot_row in zip(Ns,[0,None,1,None,2]):
+#         x = torch.tensor(loadtxt('datasets/'+'prod_'+filename)).float()
+#         xb = torch.linspace((x.min().item()/(mu_a+3*sig_a)),
+#                             ceil(x.max().item()/(mu_a-3*sig_a)),10000)
         
         
-        p_gt = torch.exp(logprob_gamma(xb,torch.tensor(shape_gt),torch.tensor(scale_gt)))
+#         p_gt = torch.exp(logprob_gamma(xb,torch.tensor(shape_gt),torch.tensor(scale_gt)))
 
-        p_nf = prob_nf(xb,'prod_'+filename,N,met='prod')
-        bayes_map,bayes_rec = prob_bayes(xb,'prod_'+filename,N,met='prod')
-        npbayes_map,npbayes_rec = prob_npbayes(xb,'prod_'+filename,N,met='prod')
+#         p_nf = prob_nf(xb,'prod_'+filename,N,met='prod')
+#         bayes_map,bayes_rec = prob_bayes(xb,'prod_'+filename,N,met='prod')
+#         npbayes_map,npbayes_rec = prob_npbayes(xb,'prod_'+filename,N,met='prod')
    
-        df_prod = pd.concat((df_prod,
-                                df_line(filename,'Bayes',N,xb,p_gt,bayes_map,bayes_rec),
-                                df_line(filename,'NPBayes',N,xb,p_gt,npbayes_map,npbayes_rec),
-                                df_line(filename,'NF',N,xb,p_gt,p_nf)
-                                ),ignore_index=True)
+#         df_prod = pd.concat((df_prod,
+#                                 df_line(filename,'Bayes',N,xb,p_gt,bayes_map,bayes_rec),
+#                                 df_line(filename,'NPBayes',N,xb,p_gt,npbayes_map,npbayes_rec),
+#                                 df_line(filename,'NF',N,xb,p_gt,p_nf)
+#                                 ),ignore_index=True)
         
-        if isinstance(plot_row,int):
-            make_graph(ax[plot_row],x[:N],xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,legend=(N==Ns[0]))
-        if N==Ns[0]:
-            fig.legend(loc=8,ncol=4,bbox_to_anchor=(0.5,-0.06),fontsize=12)
+#         if isinstance(plot_row,int):
+#             make_graph(ax[plot_row],x[:N],xb,p_gt,p_nf,bayes_map,bayes_rec,npbayes_map,npbayes_rec,legend=(N==Ns[0]))
+#         if N==Ns[0]:
+#             fig.legend(loc=8,ncol=4,bbox_to_anchor=(0.5,-0.06),fontsize=12)
         
-    ax[-1][0].set_xlabel(r'$x$',fontsize=12)
-    [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
-    [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
-    [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
-    make_titles(fig)
+#     ax[-1][0].set_xlabel(r'$x$',fontsize=12)
+#     [axi.set_xlabel(r'$b$',fontsize=12) for axi in ax[-1,1:]]
+#     [axi.set_xlim(0,25) for axi in ax[:,1:].reshape(-1)]
+#     [axi.set_xlim(ax[-1,0].get_xlim()) for axi in ax[:-1,0]]
+#     make_titles(fig)
 
-    plt.tight_layout()
-    plt.savefig('graphs/prod_'+filename.split('.')[0]+'.png',dpi=500,bbox_inches="tight", pad_inches=0.2)
+#     plt.tight_layout()
+#     plt.savefig('graphs/prod_'+filename.split('.')[0]+'.png',dpi=500,bbox_inches="tight", pad_inches=0.2)
 
-df_prod.to_csv('report_prod.csv',index=False)
+# df_prod.to_csv('report_prod.csv',index=False)
 
 # %%
 def filename2snr_sum(filename):
@@ -222,7 +222,7 @@ def grid_figure(df,fname,title):
 	mosaic = [['a','a','b','b'],
 		      ['c','c','d','d'],
 		      ['X','e','e','X']]
-	fig = plt.figure(layout="constrained",figsize=(8,12))
+	fig = plt.figure(layout="constrained",figsize=(12,6))
 	axs = fig.subplot_mosaic(mosaic, empty_sentinel='X')
 
 
@@ -248,16 +248,10 @@ def grid_figure(df,fname,title):
 	fig.suptitle( r'$\log_{10}$ KL divergence - '+title, fontsize=20 )
 	plt.savefig('graphs/'+fname,dpi=500)
 
-
-
 df = pd.read_csv('report.csv')
 df['snr'] = [filename2snr_sum(fn) for fn in df['filename']]
 grid_figure(df,'fig4.png', 'Sum example')
 
-
 df = pd.read_csv('report_prod.csv')
 df['snr'] = [filename2snr_prod(fn) for fn in df['filename']]
 grid_figure(df,'fig6.png','Product example')
-
-
-

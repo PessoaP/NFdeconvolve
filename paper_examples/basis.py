@@ -43,7 +43,7 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     pb_rec = torch.stack([torch.exp(logprob_mixgaussian(xb_nf,thi[:20],thi[20:40],thi[40:60])) for thi in th[5000:]]).mean(axis=0)
     p = pb_gt(xb_nf)
 
-    fig,ax = plt.subplots(2,1,figsize=(6,7))
+    fig,ax = plt.subplots(2,1,figsize=(8,5))
 
     h = ax[0].hist(x, alpha=.7,density=True,label='Data',bins=49)
     ax[0].hist(b, alpha=.4,density=True,label='Signal',bins=h[1])
@@ -58,8 +58,11 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     if tails is not None :
         [axi.set_xlim(*tails) for axi in ax]
 
-    ax[0].legend(fontsize=10,loc=loc)
-    ax[1].legend(fontsize=8,loc=loc)
+    ax[0].legend(fontsize=12,loc=loc)
+    ax[1].legend(fontsize=12,loc=loc)
+
+    [(axi.yaxis.set_major_formatter(ScalarFormatter(useMathText=True)), axi.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))) for axi in ax]
+    
     plt.tight_layout()
     plt.savefig('graphs/'+name+'_example.png',dpi=500)
 
