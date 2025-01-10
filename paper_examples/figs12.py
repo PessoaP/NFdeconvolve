@@ -101,7 +101,8 @@ plt.tight_layout()
 plt.savefig('graphs/fig1_noise.png',dpi=1000)
 
 
-
+del NF
+del NP
 # %%
 print('Gaussian Mixture example in Fig. 2')
 N_base = 2000
