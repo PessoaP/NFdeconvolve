@@ -53,7 +53,7 @@ def comparative_plot(name,NF,th,pb_gt,map_index,x,b,tails=None,loc=2):
     ax[1].plot(xb_nf.detach().cpu(),pb_nf.detach().cpu(),label='NFdeconvolve',linewidth=2,color='r')
 
     ax[1].plot(xb_nf.detach().cpu(),p.detach().cpu(),color='k',label = 'Ground truth',linewidth=1)
-    ax[1].set_xlabel(r'$b$')
+    ax[1].set_xlabel(r'$b$',fontsize=14)
     ax[1].set_ylabel('Density',fontsize=12)
     if tails is not None :
         [axi.set_xlim(*tails) for axi in ax]

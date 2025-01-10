@@ -194,7 +194,7 @@ class ProdDeconvolver:
         if values is None:
             values = self.lb_vals
         lvalues = torch.log(values).to(self.device)
-        lp = self.subdeconvolver.get_pdf(lvalues,log_prob=True)[1] - lvalues
+        lp = self.subdeconvolver.get_pdf(lvalues,log_prob=True)[1] - lvalues.reshape(-1)
         if log_prob:
             return values.reshape(-1),lp
         return values.reshape(-1), torch.exp(lp)
