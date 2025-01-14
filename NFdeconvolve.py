@@ -87,10 +87,15 @@ class Deconvolver:
     def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100,print_iter=False):
         gradient_norm = 2*grad_tol
         if self.trained:
-            warnings.warn('You are trying to train over a network that was already previously trained.')
-        if self.data.numel ==0:
-            return warnings.warn('The observations data was not provided. It cannot be trained.')
-        
+            warnings.warn("The network has already been trained. Proceeding will overwrite the previous training.")
+        if self.data.numel == 0:
+            warnings.warn("No observation data provided. Training cannot proceed.")
+            return
+        if not torch.cuda.is_available():
+            warnings.warn(
+                "CUDA-compatible GPU not detected. NFdeconvolve is optimized for GPU training, and performance may be significantly slower on a CPU."
+            )
+
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
         loss_hist =[]
 

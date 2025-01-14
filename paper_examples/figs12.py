@@ -13,7 +13,7 @@ np.random.seed(42)
 t = lambda x: torch.tensor(x).to(device)
 
 # %%
-print('Gamma/Inverse Gamma Mixture example in Figs. 1 and 2')
+print('Gamma/Inverse Gamma Mixture example in Fig. 1')
 N_base = 2000
 
 name='gammamix'
@@ -99,7 +99,6 @@ plt.hist(a,density=True,bins=49,)
 
 plt.tight_layout()
 plt.savefig('graphs/fig1_noise.png',dpi=1000)
-
 
 del NF
 del NP
