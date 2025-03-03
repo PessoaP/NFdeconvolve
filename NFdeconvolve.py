@@ -34,10 +34,12 @@ class NormalizingFlow_shifted:
     def parameters(self):
         return self.nfm.parameters()
 
-    def log_prob(self, x):
-        z = self.zb(x).reshape(-1, 1)
-        log_p = self.nfm.log_prob(z) - self.log_width
-        return log_p.reshape(x.shape)
+
+    def log_prob(self,x):
+        # z = self.zb(x).reshape(-1, 1)
+        # log_p = self.nfm.log_prob(z) - self.log_width
+        # return log_p.reshape(x.shape)
+        return self.nfm.log_prob((x-self.center)/self.width)-self.log_width
     
     def sample(self, shape=1, *args):
         is_int = isinstance(shape, int)
