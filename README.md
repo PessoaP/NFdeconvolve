@@ -15,4 +15,4 @@ Available [here](https://arxiv.org/abs/2501.08288).
 To reproduce the figures presented in the manuscript, navigate to the `paper_examples` directory and run the following `bash.rc`.
 
 ### Other libraries
-NFdeconvolve is based upon the normfloes library found [here](https://github.com/VincentStimper/normalizing-flows)
+NFdeconvolve is based upon the normflows library found [here](https://github.com/VincentStimper/normalizing-flows)

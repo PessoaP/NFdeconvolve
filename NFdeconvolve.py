@@ -21,30 +21,45 @@ def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tai
     return nfm.to(device)
 
 class NormalizingFlow_shifted:
-    def __init__(self,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),center=0,width=1,tail_bound=30):
-        self.nfm = create_nfm(device,tail_bound=tail_bound)
-        self.center = torch.tensor(center).to(device)
-        self.width = torch.tensor(width).to(device)
-        self.zb = lambda x: (x-self.center)/self.width
-        self.parameters = lambda: self.nfm.parameters()
+    def __init__(self, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), center=0, width=1, tail_bound=30):
+        self.nfm = create_nfm(device, tail_bound=tail_bound)
+        self.center = torch.tensor(center, dtype=torch.float32, device=device)
+        self.width = torch.tensor(width, dtype=torch.float32, device=device)
+        self.log_width = torch.log(self.width)
         self.device = device
-        
-    def log_prob(self,x):
-        return self.nfm.log_prob(self.zb(x))-torch.log(self.width)
+
+    def zb(self, x):
+        return (x - self.center) / self.width
+
+    def parameters(self):
+        return self.nfm.parameters()
+
+    def log_prob(self, x):
+        z = self.zb(x).reshape(-1, 1)
+        log_p = self.nfm.log_prob(z) - self.log_width
+        return log_p.reshape(x.shape)
     
-    def sample(self,*args):
-        zsamples = self.nfm.sample(*args)
-        return self.center+self.width*zsamples[0], zsamples[1]-torch.log(self.width)
-    
+    def sample(self, shape=1, *args):
+        is_int = isinstance(shape, int)
+        n_samples = torch.prod(torch.tensor(shape)).item()
+
+        zsamples, log_prob = self.nfm.sample(n_samples, *args)
+        log_prob += - self.log_width
+        samples = self.center + self.width * zsamples
+
+        if is_int:
+            return samples, log_prob 
+        return samples.reshape(shape), (log_prob).reshape(shape)
+
     def state_dict(self):
         g = self.nfm.state_dict().copy()
-        g['center,width'] = torch.stack((self.center,self.width))
+        g['center,width'] = torch.stack((self.center, self.width))
         return g
-    
-    def load_state_dict(self,dict):
-        self.center,self.width = dict.pop('center,width').to(self.device)
-        self.zb = lambda x: (x-self.center)/self.width
-        return self.nfm.load_state_dict(dict)
+
+    def load_state_dict(self, state_dict):
+        self.center, self.width = state_dict.pop('center,width').to(self.device)
+        self.log_width = torch.log(self.width)
+        return self.nfm.load_state_dict(state_dict)
 
 
 class Deconvolver:
@@ -92,9 +107,7 @@ class Deconvolver:
             warnings.warn("No observation data provided. Training cannot proceed.")
             return
         if not torch.cuda.is_available():
-            warnings.warn(
-                "CUDA-compatible GPU not detected. NFdeconvolve is optimized for GPU training, and performance may be significantly slower on a CPU."
-            )
+            warnings.warn( "CUDA-compatible GPU not detected. NFdeconvolve is optimized for GPU training, and performance may be significantly slower on a CPU." )
 
         optimizer = torch.optim.Adam(self.nfs.parameters(), lr=.1/self.N)
         loss_hist =[]
