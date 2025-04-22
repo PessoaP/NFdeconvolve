@@ -11,6 +11,7 @@ import npbayes_class
 # %%
 np.random.seed(42)
 t = lambda x: torch.tensor(x).to(device)
+fsize = (5,3)
 
 # %%
 print('Gamma/Inverse Gamma Mixture example in Fig. 1')
@@ -37,9 +38,22 @@ map_index = torch.argmax(lps)
 
 # %%
 comparative_plot(name,NF,th,b_gt,map_index,x,b,tails=(-3,18),loc=1)
-
 # %%
-fig,ax = plt.subplots(1,1,figsize=(5,4))
+def fix_axes(ax):
+    ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+    ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0)) 
+
+    ymax = ax.get_ylim()[1]
+    pow = np.floor(np.log10(ymax))
+    ticks = ax.get_yticks()
+        
+    if len(ticks) > 3:
+        ticks = np.linspace(0, ticks[-1], 3)
+        ticks = (ticks/(10**pow)).astype(int)*(10**pow)
+
+    ax.set_yticks(ticks)
+# %%
+fig,ax = plt.subplots(1,1,figsize=(fsize))
 g = plt.hist(x,density=True,bins=49)
 plt.title('Data',fontsize=20)
 plt.xlim(-3,18)
@@ -47,12 +61,12 @@ plt.xlim(-3,18)
 plt.xlabel(r'$x$',fontsize=15)
 plt.ylabel('Density',fontsize=15)
 
-ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+fix_axes(ax)
 plt.tight_layout()
 plt.savefig('graphs/fig1_data.png',dpi=1000)
 
 # %%
-fig,ax = plt.subplots(1,1,figsize=(5,4))
+fig,ax = plt.subplots(1,1,figsize=(fsize))
 xb = np.linspace(-3,18,101)
 plt.hist(b,density=True,bins=g[1],)
 plt.plot(xb,b_gt(t(xb)).cpu(),color='k',label = 'Ground Truth',linewidth=2)
@@ -63,22 +77,21 @@ plt.xlim(-3,18)
 plt.xlabel(r'$b$',fontsize=15)
 plt.ylabel('Density',fontsize=15)
 
-ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-
+fix_axes(ax)
 plt.tight_layout()
 plt.savefig('graphs/fig1_signal.png',dpi=1000)
 
 xb,pnf = NF.get_pdf()
-plt.plot(xb.cpu(),pnf.cpu(),color='r',label = 'NFdeconvolve',linewidth=2)
-plt.title('Signal distribution (Learned)',fontsize=20)
+ax.plot(xb.cpu(),pnf.cpu(),color='r',label = 'NFdeconvolve',linewidth=2)
+ax.set_title('Signal distribution (Learned)',fontsize=20)
 
 plt.legend()
-
+fix_axes(ax)
 plt.tight_layout()
 plt.savefig('graphs/fig1_deconvoluted.png',dpi=1000)
 
 # %%
-fig,ax = plt.subplots(1,1,figsize=(5,4))
+fig,ax = plt.subplots(1,1,figsize=(fsize))
 xa = np.linspace(-3.5,3.5,101)
 
 plt.plot(xa,
@@ -90,7 +103,7 @@ ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 plt.xlabel(r'$a$',fontsize=15)
 plt.ylabel('Density',fontsize=15)
 plt.xlim(-3.45,3.45)
-
+fix_axes(ax)
 plt.tight_layout()
 plt.savefig('graphs/fig1_noisedist.png',dpi=1000)
 

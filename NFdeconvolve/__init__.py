@@ -6,6 +6,58 @@ from math import sqrt
 l2 = lambda x: torch.sqrt((x*x).sum())
 torch.manual_seed(0)
 
+class AffineSimple(nf.flows.Flow):
+    """
+    A simple affine transformation flow: z ↦ scale * z + shift
+
+    Parameters:
+        shift (float or tensor): Additive offset (default: 0).
+        scale (float or tensor): Multiplicative scale (default: 1).
+    """
+    def __init__(self, shift=0.0, scale=1.0):
+        super().__init__()
+        self.register_buffer("shift", torch.tensor(shift))
+        self.register_buffer("scale", torch.tensor(scale))
+
+    def forward(self, z):
+        z = self.scale * z + self.shift
+        log_det = torch.log(self.scale).expand(z.shape[0])
+        return z, log_det
+
+    def inverse(self, z):
+        z = (z - self.shift) / self.scale
+        log_det = -torch.log(self.scale).expand(z.shape[0])
+        return z, log_det
+    
+
+class log_distribution:
+    """
+    A wrapper class for transforming a probability distribution into its equivalent in log space.
+
+    Attributes:
+        dist (torch.distributions.Distribution): The base probability distribution.
+        mean (float): Approximate mean of the log-sampled values. Computed during initialization.
+        stddev (float): Approximate standard deviation of the log-sampled values. Computed during initialization.
+
+    Methods:
+        sample(args):
+            Samples values from the base distribution in log space.
+        log_prob(lx):
+            Computes the log-probability of a value in log space.
+    """
+    def __init__(self, distribution):
+        self.dist = distribution
+
+        lx = self.sample((10000,))
+        self.mean = lx.mean()
+        self.stddev = lx.std()
+        
+    def sample(self,*args):
+        return torch.log(self.dist.sample(*args))
+
+    def log_prob(self,lx):
+        return self.dist.log_prob(torch.exp(lx)) + lx
+    
 def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tail_bound=30):
     latent_size = 1
 
@@ -20,48 +72,13 @@ def create_nfm(device, K = 4, hidden_units = 32, hidden_layers_list = (1,2), tai
     enable_cuda = True
     return nfm.to(device)
 
-class NormalizingFlow_shifted:
-    def __init__(self, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), center=0, width=1, tail_bound=30):
-        self.nfm = create_nfm(device, tail_bound=tail_bound)
-        self.center = torch.tensor(center, dtype=torch.float32, device=device)
-        self.width = torch.tensor(width, dtype=torch.float32, device=device)
-        self.log_width = torch.log(self.width)
-        self.device = device
-
-    def zb(self, x):
-        return (x - self.center) / self.width
-
-    def parameters(self):
-        return self.nfm.parameters()
-
-
-    def log_prob(self,x):
-        # z = self.zb(x).reshape(-1, 1)
-        # log_p = self.nfm.log_prob(z) - self.log_width
-        # return log_p.reshape(x.shape)
-        return self.nfm.log_prob((x-self.center)/self.width)-self.log_width
-    
-    def sample(self, shape=1, *args):
-        is_int = isinstance(shape, int)
-        n_samples = torch.prod(torch.tensor(shape)).item()
-
-        zsamples, log_prob = self.nfm.sample(n_samples, *args)
-        log_prob += - self.log_width
-        samples = self.center + self.width * zsamples
-
-        if is_int:
-            return samples, log_prob 
-        return samples.reshape(shape), (log_prob).reshape(shape)
-
-    def state_dict(self):
-        g = self.nfm.state_dict().copy()
-        g['center,width'] = torch.stack((self.center, self.width))
-        return g
-
-    def load_state_dict(self, state_dict):
-        self.center, self.width = state_dict.pop('center,width').to(self.device)
-        self.log_width = torch.log(self.width)
-        return self.nfm.load_state_dict(state_dict)
+def NormalizingFlow_shifted(device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), 
+                            center=0, width=1, tail_bound=30):
+    nfm = create_nfm(device, tail_bound=tail_bound)
+    center = torch.tensor(center, dtype=torch.float32, device=device)
+    width = torch.tensor(width, dtype=torch.float32, device=device)
+    nfm.flows += [AffineSimple(center,width)]
+    return nfm
 
 
 class Deconvolver:
@@ -157,33 +174,6 @@ class Deconvolver:
         self.trained=True
 
 
-class log_distribution:
-    """
-    A wrapper class for transforming a probability distribution into its equivalent in log space.
-
-    Attributes:
-        dist (torch.distributions.Distribution): The base probability distribution.
-        mean (float): Approximate mean of the log-sampled values. Computed during initialization.
-        stddev (float): Approximate standard deviation of the log-sampled values. Computed during initialization.
-
-    Methods:
-        sample(args):
-            Samples values from the base distribution in log space.
-        log_prob(lx):
-            Computes the log-probability of a value in log space.
-    """
-    def __init__(self, distribution):
-        self.dist = distribution
-
-        lx = self.sample((10000,))
-        self.mean = lx.mean()
-        self.stddev = lx.std()
-        
-    def sample(self,*args):
-        return torch.log(self.dist.sample(*args))
-
-    def log_prob(self,lx):
-        return self.dist.log_prob(torch.exp(lx)) + lx
     
 class ProdDeconvolver:
     def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
