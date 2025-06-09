@@ -16,3 +16,18 @@ To reproduce the figures presented in the manuscript, navigate to the `paper_exa
 
 ### Other libraries
 NFdeconvolve is based upon the normflows library found [here](https://github.com/VincentStimper/normalizing-flows)
+
+
+## Citation
+If you find our software or research helpful in your work, please consider citing the companion paper:
+```
+@article{pessoa2025avoiding,
+      title={Avoiding subtraction and division of stochastic signals using normalizing flows: NFdeconvolve}, 
+      author={Pedro Pessoa and Max Schweiger and Lance W. Q. Xu and Tristan Manha and Ayush Saurabh and Julian Antolin Camarena and Steve Pressé},
+      year={2025},
+      eprint={2501.08288},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML},
+      url={https://arxiv.org/abs/2501.08288}, 
+}
+```
