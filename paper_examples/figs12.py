@@ -85,7 +85,7 @@ xb,pnf = NF.get_pdf()
 ax.plot(xb.cpu(),pnf.cpu(),color='r',label = 'NFdeconvolve',linewidth=2)
 ax.set_title('Signal distribution (Learned)',fontsize=20)
 
-plt.legend()
+plt.legend(fontsize=15)
 fix_axes(ax)
 plt.tight_layout()
 plt.savefig('graphs/fig1_deconvoluted.png',dpi=1000)
