@@ -25,3 +25,6 @@ done
 
 # python make_figures.py
 # python figs12.py
+
+# python oblation.py
+# python robustness.py
