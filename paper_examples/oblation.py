@@ -71,7 +71,7 @@ def plot_deconvolved_pdfs(labels, pdfs_list, x_all, xb_all, pgt_all, save_name=N
 
     for (axi, data) in zip(ax[:, 0], x_all):
         axi.hist(data,density=True)
-        axi.set_ylabel('N={}'.format(data.size(0)),fontsize=12)
+        axi.set_ylabel('{}  datapoints'.format(data.size(0)),fontsize=12)
     
 
     ax[-1][0].set_xlabel(r'$x$', fontsize=16)
@@ -101,7 +101,7 @@ def plot_deconvolved_pdfs(labels, pdfs_list, x_all, xb_all, pgt_all, save_name=N
 
 
 # %%
-#Different intervals 
+#Different layers
 layers = [2,6]
 pxb_layers = []
 for K in layers:
@@ -191,7 +191,7 @@ fig,ax = plt.subplot_mosaic([['X'    , 'c100', 'c316', 'c1000'],
                              figsize=(12, 8), empty_sentinel='X')
 
 [ax['d{}'.format(N)].hist(loadtxt('datasets/'+filename)[:N],density=True) for N in set(Ns_sep)]
-[ax['d{}'.format(N)].set_ylabel(f'N={N}') for N in set(Ns_sep)]
+[ax['d{}'.format(N)].set_ylabel(f'{N}  datapoints') for N in set(Ns_sep)]
 
 [ax['c{}'.format(N)].hist(ctr[:N],color='maroon',density=True) for N in set(Ns_control)]
 
