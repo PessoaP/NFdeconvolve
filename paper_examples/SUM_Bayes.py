@@ -97,7 +97,7 @@ ax[0].set_ylabel('density')
 ax[0].set_xlabel(r'$b$')
 
 ax[1].hist(x.cpu(),bins=int(ceil(sqrt(x.size(0)))),alpha=.2,density=True)
-ax[1].set_title('N={}'.format(N))
+ax[1].set_title('{} datapoints'.format(N))
 ax[1].set_xlabel(r'$x$')
 plt.savefig('graphs/Bayes_N_{}_{}_G_{}_{}_datapoints{}.png'.format(mu_a,sig_a,shape,scale,N),dpi=600)
 

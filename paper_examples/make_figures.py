@@ -70,7 +70,7 @@ def make_graph(ax,x,xb,p_gt,p_nf,
                bayes_map=None,bayes_rec=None,npbayes_map=None,npbayes_rec=None,
                legend=True):
     ax[0].hist(x,density=True)
-    ax[0].set_ylabel('N={}'.format(x.size(0)),fontsize=12)
+    ax[0].set_ylabel('{}  datapoints'.format(x.size(0)),fontsize=12)
     
     if legend:
         ax[1].plot(xb,p_gt,color='k',label='Ground Truth') 
