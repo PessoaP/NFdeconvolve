@@ -5,11 +5,12 @@ mkdir -p graphs
 mkdir -p models
 mkdir -p tables
 
-#python make_data.py
+
+
+python make_data.py
 
 n_values=(10000 3160 1000 316 100)
 methods=("SUM_Bayes.py" "SUM_NPBayes.py" "SUM_Normflow.py" "PROD_Bayes.py" "PROD_NPBayes.py" "PROD_Normflow.py")
-methods=("PROD_NPBayes.py")
 
 for method in "${methods[@]}"
 do
@@ -23,8 +24,8 @@ do
     done
 done
 
-# python make_figures.py
-# python figs12.py
+python make_figures.py
+python figs12.py
 
-# python oblation.py
-# python robustness.py
+python oblation.py
+python robustness.py
