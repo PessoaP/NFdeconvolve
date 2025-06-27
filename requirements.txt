@@ -2,3 +2,5 @@ numpy
 torch
 normflows
 matplotlib
+pandas
+tqdm
