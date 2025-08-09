@@ -59,7 +59,7 @@ torch.save(a_dist.nfm.state_dict(),'models/FCdata_control_NF.pt')
 lowstress = pd.read_csv('FCdata/complete_d=0.23.csv')['FL1-A'].to_numpy()
 lowstress = torch.tensor(lowstress).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')).float()
 
-lowstress_deconvolver = nf_class.Deconvolver(lowstress[:10000],a_dist,intervals=1000)
+lowstress_deconvolver = nf_class.Deconvolver(lowstress[:10000],a_dist,intervals=1000,method='quadrature')
 lowstress_deconvolver.train()
 torch.save(lowstress_deconvolver.state_dict(),'models/FCdata_lowstress_NF.pt')
 
@@ -69,7 +69,7 @@ del lowstress_deconvolver
 highstress = pd.read_csv('FCdata/complete_d=0.12.csv')['FL1-A'].to_numpy()
 highstress = torch.tensor(highstress).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')).float()
 
-highstress_deconvolver = nf_class.Deconvolver(highstress[:10000],a_dist,intervals=1000)
+highstress_deconvolver = nf_class.Deconvolver(highstress[:10000],a_dist,intervals=1000,method='quadrature')
 highstress_deconvolver.train()
 torch.save(highstress_deconvolver.state_dict(),'models/FCdata_highstress_NF.pt')
 

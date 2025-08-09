@@ -26,13 +26,13 @@ p_ctr = torch.exp(a_dist.log_prob(x_ctr.reshape(-1,1)).reshape(-1))
 # %%
 lowstress = pd.read_csv('FCdata/complete_d=0.23.csv')['FL1-A'].to_numpy()
 lowstress = torch.tensor(lowstress).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')).float()
-lowstress_deconvolver = nf_class.Deconvolver(lowstress[:10000],torch.distributions.Normal(0,1),intervals=1000)
+lowstress_deconvolver = nf_class.Deconvolver(lowstress[:10000],torch.distributions.Normal(0,1),intervals=1000,method='quadrature')
 lowstress_deconvolver.load_state_dict(torch.load('models/FCdata_lowstress_NF.pt'))
 
 # %%
 highstress = pd.read_csv('FCdata/complete_d=0.12.csv')['FL1-A'].to_numpy()
 highstress = torch.tensor(highstress).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')).float()
-highstress_deconvolver = nf_class.Deconvolver(highstress[:10000],torch.distributions.Normal(0,1),intervals=1000)
+highstress_deconvolver = nf_class.Deconvolver(highstress[:10000],torch.distributions.Normal(0,1),intervals=1000,method='quadrature')
 highstress_deconvolver.load_state_dict(torch.load('models/FCdata_highstress_NF.pt'))
 
 # %%

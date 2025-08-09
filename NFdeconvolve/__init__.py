@@ -3,6 +3,7 @@ import normflows as nf
 from tqdm import tqdm
 import warnings
 from .utils import *
+import gc
 
 l2 = lambda x: torch.sqrt((x*x).sum())
 torch.manual_seed(0)
@@ -29,43 +30,98 @@ def NormalizingFlow_shifted(device=torch.device('cuda' if torch.cuda.is_availabl
     nfm.flows += [AffineSimple(center,width)]
     return nfm
 
-
 class Deconvolver:
-    def __init__(self,data = None,
-                 a_distribution = None,
-                 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-                 intervals = 20000,
-                 layers = 4,
-                 tail_bound = 30):
-        self.a_distribution = a_distribution#.to(device)
-        
-        if (data is None) or (a_distribution is None):
-            self.nfs = NormalizingFlow_shifted(device,torch.zeros(1,device=device),torch.ones(1,device=device),layers = layers,tail_bound=tail_bound)
+    def __init__(self, data=None, a_distribution=None, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+                 intervals=20000, layers=4, tail_bound=30, method='quasiMC'):
+        """
+        Deconvolver for recovering a latent distribution from data corrupted by additive noise.
 
+        Args:
+            data: Observed data tensor.
+            a_distribution: Additive noise distribution.
+            device: CUDA/CPU device.
+            intervals: Number of samples or bins.
+            layers: Number of NF layers.
+            tail_bound: Spline tail bound.
+            method: Likelihood estimation method ('quasiMC' or 'quadrature').
+        """
+        self.a_distribution = a_distribution
+
+        if (data is None) or (a_distribution is None):
+            # Empty initialization (for later loading)
+            self.nfs = NormalizingFlow_shifted(device, torch.zeros(1,device=device), torch.ones(1,device=device),
+                                               layers=layers, tail_bound=tail_bound)
         else:
-            mu_a,sig_a = self.a_distribution.mean,self.a_distribution.stddev
+            mu_a, sig_a = self.a_distribution.mean, self.a_distribution.stddev
             self.data = data.reshape(-1).to(device)
             self.N = data.size(0)
             self.device = device
 
-            self.b_vals = torch.linspace(data.min().item()-mu_a-3*sig_a, data.max().item()-mu_a+3*sig_a,intervals).to(device).reshape(-1,1)
-            self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
-
-            width = self.data.std().item() 
-            width *= max(1/4, torch.sqrt(1-torch.pow(sig_a/self.data.std(),2)).item() )
+            # Heuristic width for the base NF
+            width = self.data.std().item()
+            width *= max(1/4, torch.sqrt(1 - (sig_a / self.data.std())**2).item())
             self.nfs = NormalizingFlow_shifted(device,
-                                               (self.data.mean()-mu_a).item(),
-                                               width,layers = layers,tail_bound=tail_bound)
+                                               (self.data.mean() - mu_a).item(),
+                                               width,
+                                               layers=layers, tail_bound=tail_bound)
+            
+            self.method = method
+            if method == 'quasiMC':
+                # Create inverse-CDF samples for low-discrepancy sampling
+                u = torch.linspace(0, 1, intervals + 1)[1:-1].to(device).reshape(-1,1)
+                self.z_vals = torch.distributions.Normal(0, 1).icdf(u)
+                self.logintervals = torch.log(torch.tensor(intervals))
+                self.log_likelihood = self.ll_pseudosampling
+            elif method == 'quadrature':
+                self.makeB(intervals)
+                self.log_likelihood = self.ll_quadrature
 
         self.device = device
         self.trained = False
 
-    def log_likelihood(self):
+
+    def makeB(self, intervals=None):
+        """
+        Create evaluation grid `b_vals` for quadrature integration.
+        """
+        if intervals is None:
+            intervals = int(torch.exp(self.logintervals).item())
+
+        mu_a, sig_a = self.a_distribution.mean, self.a_distribution.stddev
+        self.b_vals = torch.linspace(self.data.min().item() - mu_a - 3*sig_a,
+                                     self.data.max().item() - mu_a + 3*sig_a,
+                                     intervals).to(self.device).reshape(-1, 1)
+        self.log_db = torch.log(self.b_vals[1] - self.b_vals[0])
+
+    def ll_quadrature(self):
+        """
+        Likelihood estimation using numerical quadrature (grid over b).
+        """
         if self.a_distribution is None:
-            return warnings.warn('The distribution was not provided. We cannot calculate likelihoods')
-        lpb = self.nfs.log_prob(self.b_vals).reshape(-1,1)
-        lpa = self.a_distribution.log_prob(self.data-self.b_vals)
-        return self.log_db + torch.logsumexp(lpb+lpa,axis=0)
+            return warnings.warn('The distribution was not provided.')
+        lpb = self.nfs.log_prob(self.b_vals).reshape(-1, 1)
+        lpa = self.a_distribution.log_prob(self.data - self.b_vals)
+        return self.log_db + torch.logsumexp(lpb + lpa, axis=0)
+
+    def flows_forward(self):
+        """
+        Forward-transform `z_vals` through all flows to get samples from p_{NF}(b).
+        """
+        z = self.z_vals.clone()
+        for flow in self.nfs.flows:
+            z, _ = flow.forward(z)
+            gc.collect()
+        return z
+
+    def ll_pseudosampling(self):
+        """
+        Likelihood estimation via pseudo-Monte Carlo over transformed samples.
+        """
+        if self.a_distribution is None:
+            return warnings.warn('The distribution was not provided.')
+        b_vals = self.flows_forward()
+        lpa = self.a_distribution.log_prob(self.data - b_vals)
+        return torch.logsumexp(lpa, axis=0) - self.logintervals
 
     
     def train(self,grad_tol = .05, max_iter = 5000,show_iter = 100,print_iter=False):
@@ -91,7 +147,7 @@ class Deconvolver:
 
             loss_hist.append(loss.item())
             if ((it + 1) % show_iter == 0):
-                gradient_norm = l2(torch.stack([l2(p.grad) for p in self.nfs.parameters()])).item()
+                gradient_norm = l2(torch.stack( [l2(p.grad) for p in self.nfs.parameters()] )).item()
                 if print_iter:
                     print('Loss:',loss_hist[-1],'   gradient:',gradient_norm)
                 if gradient_norm < grad_tol:
@@ -102,6 +158,8 @@ class Deconvolver:
 
     def get_pdf(self, values = None,log_prob=False):
         if values is None:
+            if self.method != 'quadrature':
+                self.makeB()
             values = self.b_vals*1.0
         lp = self.nfs.log_prob(values.reshape(-1,1).to(self.device)).detach()
         if log_prob:
@@ -110,15 +168,20 @@ class Deconvolver:
 
     def state_dict(self):
         g = self.nfs.state_dict().copy()
-        g['b_array:min,max,intervals'] = torch.tensor((self.b_vals[0].float(),
-                                                       self.b_vals[-1].float(),
-                                                       self.b_vals.numel()))
+        if self.method == 'quadrature':
+            g['intervals'] = torch.tensor((self.b_vals.numel()))
+        else:
+            g['intervals'] = torch.tensor((self.z_vals.numel()))
         return g
     
     def load_state_dict(self,dict):
-        xb_min,xb_max,intervals = dict.pop('b_array:min,max,intervals')#.to(self.device)
-        self.b_vals = torch.linspace(xb_min,xb_max,intervals.int().item()).to(self.device).reshape(-1,1)
-        self.log_db = torch.log(self.b_vals[1]-self.b_vals[0])
+        intervals = dict.pop('intervals')
+            
+        u = torch.linspace(0,1,intervals+1)[1:-1]
+        self.z_vals = torch.distributions.Normal(0, 1).icdf(u)
+        self.logintervals = torch.log(torch.tensor(intervals))
+
+        self.makeB(intervals)
 
         self.nfs.load_state_dict(dict)
         self.trained=True
@@ -126,6 +189,9 @@ class Deconvolver:
 
     
 class ProdDeconvolver:
+    """
+    Deconvolver for multiplicative noise via log-transformed data.
+    """
     def __init__(self,data = None,a_distribution = None,device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),intervals = 20000):
         if (data is None) or (a_distribution is None):
             self.subdeconvolver = Deconvolver(data,a_distribution,device)
@@ -138,7 +204,7 @@ class ProdDeconvolver:
                                            torch.exp(self.subdeconvolver.b_vals[-1]).item(),
                                            intervals).to(self.device).reshape(-1,1)
         
-    def train(self,grad_tol=.05,max_iter =1000,show_iter = 100):
+    def train(self,grad_tol=.05,max_iter = 1000,show_iter = 100):
         self.subdeconvolver.train(grad_tol,max_iter,show_iter)
 
     def state_dict(self):
